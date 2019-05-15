@@ -10,6 +10,9 @@
 #include <Windows.h>
 #include <stdio.h>
 
+// the same with CHAR
+#ifndef UINT
+#define UINT 
 enum PAGE_COLOR
 {
 	PG_COLOR_GREEN = 1, /* page may be released without high overhead */
@@ -24,12 +27,13 @@ enum PAGE_COLOR
 union PageKey
 {
 	struct
-	{
-        CHAR	cColor: 8;
-		UINT	cAddr: 24;
+	{ 
+		//something opaque is written below
+        CHAR	cColor: 8;  
+		UINT	cAddr: 24;  
 	};
 
-	UINT	uKey;
+	UINT	uKey;          
 };
 
 
@@ -53,20 +57,26 @@ struct PageDesc
         (Desc).uKey = CALC_PAGE_KEY( Addr, Color ); \
         (Desc).next = (Desc).prev = NULL;           \
     }
-
+        
 
 /* storage for pages of all colors */
-static PageDesc* PageStrg[ 3 ];
+
+#define PAGE_STRG_NUMBER 3
+static PageDesc* PageStrg[ PAGE_STRG_NUMBER ];
 
 void PageStrgInit()
 {
-	memset( PageStrg, 0, sizeof(&PageStrg) );
+	memset( PageStrg, 0, PAGE_STRG_NUMBER);
 }
 
-PageDesc* PageFind( void* ptr, char color )
+PageDesc* PageFind( void* ptr, UINT color )
 {
+	if ( color >= PAGE_STRG_NUMBER ) {
+		fprintf(stderr, "bad color");
+		return NULL;	
+	}
 	for( PageDesc* Pg = PageStrg[color]; Pg; Pg = Pg->next );
-        if( Pg->uKey == CALC_PAGE_KEY(ptr,color) )
+        if( Pg->uKey == CALC_PAGE_KEY(ptr,color) ) 
            return Pg;                                                                                                                                     
     return NULL;
 }
@@ -74,23 +84,26 @@ PageDesc* PageFind( void* ptr, char color )
 PageDesc* PageReclaim( UINT cnt )
 {
 	UINT color = 0;
-	PageDesc* Pg;
+	PageDesc* Pg = PageStrg[ color ];
 	while( cnt )
 	{
-		Pg = Pg->next;
-		PageRemove( PageStrg[ color ] );
+		Pg = Pg->next;  // maybe NULL
+		PageRemove( PageStrg[ color ] ); // no PageRemove
 		cnt--;
 		if( Pg == NULL )
 		{
 			color++;
-			Pg = PageStrg[ color ];
+			if ( color >= PAGE_STRG_NUMBER )
+				return NULL;
+
+			Pg = PageStrg[ color ]; 
 		}
 	}
 }
-
+            
 PageDesc* PageInit( void* ptr, UINT color )
 {
-    PageDesc* pg = new PageDesc;
+    PageDesc* pg = (PageDesc*) calloc(1, sizeof(PageDesc));
     if( pg )
         PAGE_INIT(&pg, ptr, color);
     else
@@ -103,7 +116,7 @@ PageDesc* PageInit( void* ptr, UINT color )
  */
 void PageDump()
 {
-	UINT color = 0;
+	UINT color = 0; 
 	#define PG_COLOR_NAME(clr) #clr
 	char* PgColorName[] = 
 	{
@@ -114,8 +127,8 @@ void PageDump()
 
 	while( color <= PG_COLOR_RED )
 	{
-		printf("PgStrg[(%s) %u] ********** \n", color, PgColorName[color] );
-		for( PageDesc* Pg = PageStrg[++color]; Pg != NULL; Pg = Pg->next )
+		printf("PgStrg[(%s) %u] ********** \n", color, PgColorName[color] );  // should be %u %s
+		for( PageDesc* Pg = PageStrg[++color]; Pg != NULL; Pg = Pg->next )   
 		{
 			if( Pg->uAddr = NULL )
 				continue;
@@ -125,3 +138,5 @@ void PageDump()
 	}
 	#undef PG_COLOR_NAME
 }
+
+// lack of undefs
